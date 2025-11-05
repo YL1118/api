@@ -1,0 +1,195 @@
+openapi: 3.1.0
+jsonSchemaDialect: https://json-schema.org/draft/2020-12/schema
+info:
+  title: Lifepath RPG Actions
+  version: 0.1.3
+servers:
+  - url: https://YOUR-VERCEL-DOMAIN.vercel.app/api
+
+paths:
+  /roll:
+    post:
+      x-openai-isConsequential: false
+      operationId: rollCheck
+      summary: Roll dice with optional stat modifier
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                formula: { type: string, example: "1d100" }
+                mod: { type: integer, default: 0 }
+                seed: { type: integer }
+                context: { type: string }
+              required: ["formula"]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:  { type: integer, minimum: 1, maximum: 100 }
+                  detail: { type: string }
+                  context: { type: ["string","null"] }
+                required: ["total","detail"]
+
+  /state/get:
+    get:
+      x-openai-isConsequential: false
+      operationId: getState
+      summary: Get current player/world state
+      parameters:
+        - in: query
+          name: playerId
+          required: true
+          schema: { type: string, example: "default-player" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  player:
+                    type: object
+                    properties:
+                      id: { type: string }
+                      name: { type: string }
+                      age: { type: integer }
+                      origin: { type: string }
+                      stats:
+                        type: object
+                        properties:
+                          strength: { type: integer }
+                          intelligence: { type: integer }
+                          charisma: { type: integer }
+                          endurance: { type: integer }
+                          creativity: { type: integer }
+                          luck: { type: integer }
+                        required: ["strength","intelligence","charisma","endurance","creativity","luck"]
+                      money: { type: integer }
+                      inventory:
+                        type: array
+                        items: { type: string }
+                      relationships:
+                        type: object
+                        additionalProperties: { type: integer }
+                      quests:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id: { type: string }
+                            title: { type: string }
+                            status: { type: string, enum: ["active","completed","failed"] }
+                            notes: { type: string }
+                          required: ["id","title","status"]
+                      location: { type: string }
+                      status: { type: string }
+                      mood: { type: string }
+                    required: ["id","stats","money","inventory","relationships","quests","location","status","mood"]
+                  world:
+                    type: object
+                    properties:
+                      time: { type: string }
+                      weather: { type: string }
+                      day: { type: integer }
+                      random_seed: { type: integer }
+                      region: { type: string }
+                    required: ["time","weather","day","random_seed","region"]
+                required: ["player","world"]
+
+  /state/update:
+    post:
+      operationId: updateState
+      summary: Patch player/world state (partial merge)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                playerId: { type: string }
+                patch: { type: object, additionalProperties: true }
+              required: ["playerId","patch"]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  saved: { type: boolean }
+                  state: { $ref: '#/paths/~1state~1get/get/responses/200/content/application~1json/schema' }
+                required: ["saved","state"]
+
+  /rules/list:
+    get:
+      x-openai-isConsequential: false
+      operationId: listRules
+      summary: List rule headers
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    title: { type: string }
+                    tier: { type: string, enum: ["Hard","Regional","System","Soft","Narrative"] }
+                  required: ["id","title","tier"]
+
+  /rules/get:
+    get:
+      x-openai-isConsequential: false
+      operationId: getRule
+      summary: Get a rule by id
+      parameters:
+        - in: query
+          name: id
+          required: true
+          schema: { type: string, example: "R-11" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string }
+                  title: { type: string }
+                  tier: { type: string }
+                  scope: { type: string }
+                  effect: { type: string }
+                  except: { type: string }
+                  intent: { type: string }
+                required: ["id","title","tier"]
+
+  /rules/version:
+    get:
+      x-openai-isConsequential: false
+      operationId: getVersion
+      summary: Get rulebook version
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  version: { type: string }
+                  updatedAt: { type: string, format: date-time }
+                required: ["version","updatedAt"]
